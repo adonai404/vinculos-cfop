@@ -166,6 +166,22 @@ dialog::backdrop { background: rgba(0,0,0,.32); backdrop-filter: blur(4px); }
 /* Toast */
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--bg-3); backdrop-filter: blur(40px); box-shadow: var(--glass-2); border-radius: 16px; padding: 10px 12px 10px 16px; display: flex; align-items: center; gap: 12px; z-index: 50; max-width: calc(100vw - 32px); }
 
+/* Salvos */
+.nav-count { margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 80px; background: var(--black-4); font-size: 12px; line-height: 20px; text-align: center; color: var(--black-80); font-variant-numeric: tabular-nums; }
+.star-btn[aria-pressed="true"] { color: #e0a800; }
+.star-btn[aria-pressed="true"] svg { fill: #ffcc00; stroke: #e0a800; }
+.sheet .c-act2 { width: 76px; text-align: center; white-space: nowrap; }
+.sheet.lookup td.c-act2 { padding: 0 4px; }
+.sheet.saved td.note-cell { padding: 0; }
+.note-in { width: 100%; height: 44px; border: 0; background: transparent; padding: 0 12px; }
+.note-in::placeholder { color: var(--black-40); }
+.note-in:focus { outline: 2px solid var(--black-100); outline-offset: -2px; background: var(--bg-1); }
+.search-sm { flex: 0 1 260px; height: 36px; border-radius: 12px; }
+.empty-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 40px 16px; color: var(--black-80); }
+.empty-state svg { width: 36px; height: 36px; color: var(--black-20); }
+.empty-state span { max-width: 46ch; color: var(--black-40); }
+.empty-state .btn { margin-top: 8px; text-decoration: none; color: var(--black-100); }
+
 /* Conexão */
 .conn-btn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--black-10); background: transparent; font-size: 12px; color: var(--black-80); max-width: 100%; }
 .conn-btn:hover { background: var(--black-4); }
@@ -220,6 +236,11 @@ details summary { cursor: pointer; color: var(--black-80); font-size: 12px; }
         <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><circle cx="116" cy="116" r="76"/><path d="M170 170l54 54"/></svg>
         Consulta CFOP
       </a>
+      <a href="#salvos" data-view="salvos">
+        <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M128 32l29 60 66 9-48 46 12 65-59-31-59 31 12-65-48-46 66-9z"/></svg>
+        Salvos
+        <span class="nav-count" id="navSavedCount" hidden></span>
+      </a>
     </nav>
     <div class="side-foot">Tabela CFOP com <span id="baseCount">0</span> códigos. <span id="sideStore">Os dados ficam salvos neste navegador.</span></div>
   </aside>
@@ -272,9 +293,36 @@ details summary { cursor: pointer; color: var(--black-80); font-size: 12px; }
         <div class="hint" id="qCount"></div>
         <div class="sheet-wrap">
           <table class="sheet lookup">
-            <thead><tr><th>CFOP</th><th>Descrição</th><th>Grupo</th><th>Vigência</th><th class="c-act"></th></tr></thead>
+            <thead><tr><th>CFOP</th><th>Descrição</th><th>Grupo</th><th>Vigência</th><th class="c-act2"></th></tr></thead>
             <tbody id="qBody"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- SALVOS -->
+    <section class="content" id="view-salvos" hidden>
+      <div class="card">
+        <div class="card-head">
+          <h2 class="card-title">CFOPs salvos</h2>
+          <span class="hint" id="sCount"></span>
+          <div class="spacer"></div>
+          <label class="search search-sm" for="sq">
+            <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round"><circle cx="116" cy="116" r="76"/><path d="M170 170l54 54"/></svg>
+            <input id="sq" type="search" placeholder="Filtrar salvos" autocomplete="off">
+          </label>
+        </div>
+        <div class="sheet-wrap" id="sWrap">
+          <table class="sheet lookup saved">
+            <thead><tr><th>CFOP</th><th>Descrição</th><th style="width:30%">Anotação</th><th class="c-act2"></th></tr></thead>
+            <tbody id="sBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="sEmpty" hidden>
+          <svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"><path d="M128 32l29 60 66 9-48 46 12 65-59-31-59 31 12-65-48-46 66-9z"/></svg>
+          <b>Nenhum CFOP salvo ainda</b>
+          <span>Na Consulta CFOP, clique na estrela ao lado de um código para guardá-lo aqui. Você pode escrever uma anotação para lembrar quando usar cada um.</span>
+          <a class="btn btn-outline btn-sm" href="#consulta">Ir para a Consulta CFOP</a>
         </div>
       </div>
     </section>
@@ -773,24 +821,89 @@ function renderLookup() {
     <td>${hl(r[1], words)}${used.has(r[0]) ? ' <span class="status status-ok">Em uso</span>' : ''}</td>
     <td class="grp">${esc(r[2].split(' - ')[0])}</td>
     <td class="date">${esc(r[3])}</td>
-    <td class="c-act"><button type="button" class="icon-btn" data-copy="${r[0]}" aria-label="Copiar ${r[0]}" title="Copiar código"><svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linejoin="round"><rect x="88" y="88" width="128" height="128" rx="8"/><path d="M168 88V48H40v128h48"/></svg></button></td></tr>`).join('')
+    <td class="c-act2">${starBtn(r[0])}${copyBtn(r[0])}</td></tr>`).join('')
     : `<tr><td colspan="5" class="empty">Nenhum CFOP encontrado para “${esc($('#q').value)}”.</td></tr>`;
+}
+const ICON_STAR = '<svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><path d="M128 32l29 60 66 9-48 46 12 65-59-31-59 31 12-65-48-46 66-9z"/></svg>';
+const ICON_COPY = '<svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linejoin="round"><rect x="88" y="88" width="128" height="128" rx="8"/><path d="M168 88V48H40v128h48"/></svg>';
+function starBtn(c) {
+  const on = isSaved(c);
+  return `<button type="button" class="icon-btn star-btn" data-star="${c}" aria-pressed="${on}" aria-label="${on ? 'Remover ' + c + ' dos salvos' : 'Salvar ' + c}" title="${on ? 'Remover dos salvos' : 'Salvar CFOP'}">${ICON_STAR}</button>`;
+}
+function copyBtn(c) { return `<button type="button" class="icon-btn" data-copy="${c}" aria-label="Copiar ${c}" title="Copiar código">${ICON_COPY}</button>`; }
+function copyCode(c) {
+  Promise.resolve().then(() => navigator.clipboard.writeText(c)).then(() => toast(`CFOP ${c} copiado`), () => toast(`CFOP ${c}`));
 }
 $('#q').addEventListener('input', renderLookup);
 $('#qBody').addEventListener('click', e => {
-  const b = e.target.closest('[data-copy]'); if (!b) return;
-  const c = b.dataset.copy;
-  Promise.resolve().then(() => navigator.clipboard.writeText(c)).then(() => toast(`CFOP ${c} copiado`), () => toast(`CFOP ${c}`));
+  const s = e.target.closest('[data-star]');
+  if (s) { toggleSaved(s.dataset.star); return; }
+  const b = e.target.closest('[data-copy]'); if (b) copyCode(b.dataset.copy);
+});
+
+/* ---------- Salvos ---------- */
+const KEY_SAVED = 'vinculos-cfop-salvos';
+let saved = loadSaved();
+function loadSaved() {
+  try { const d = JSON.parse(localStorage.getItem(KEY_SAVED) || '[]'); if (Array.isArray(d)) return d.filter(x => x && MAP.has(x.cfop)); } catch (e) {}
+  return [];
+}
+function persistSaved() {
+  try { localStorage.setItem(KEY_SAVED, JSON.stringify(saved)); } catch (e) {}
+  const n = $('#navSavedCount'); n.textContent = saved.length; n.hidden = !saved.length;
+}
+function isSaved(c) { return saved.some(x => x.cfop === c); }
+function toggleSaved(c) {
+  const i = saved.findIndex(x => x.cfop === c);
+  if (i > -1) {
+    const [old] = saved.splice(i, 1);
+    persistSaved(); refreshStars(c); renderSaved();
+    toast(`CFOP ${c} removido dos salvos`, () => { saved.splice(i, 0, old); persistSaved(); refreshStars(c); renderSaved(); });
+  } else {
+    saved.push({ cfop: c, nota: '', em: Date.now() });
+    persistSaved(); refreshStars(c); renderSaved();
+    toast(`CFOP ${c} salvo`, () => { saved = saved.filter(x => x.cfop !== c); persistSaved(); refreshStars(c); renderSaved(); });
+  }
+}
+function refreshStars(c) {
+  document.querySelectorAll(`[data-star="${c}"]`).forEach(b => { b.outerHTML = starBtn(c); });
+}
+function renderSaved() {
+  const q = norm($('#sq').value.trim());
+  const list = saved.slice().sort((a, b) => a.cfop.localeCompare(b.cfop))
+    .filter(x => !q || x.cfop.startsWith(q) || norm(MAP.get(x.cfop).desc).includes(q) || norm(x.nota).includes(q));
+  const empty = !saved.length;
+  $('#sEmpty').hidden = !empty; $('#sWrap').hidden = empty; $('#sq').closest('label').hidden = empty;
+  $('#sCount').textContent = empty ? '' : (q ? `${list.length} de ${saved.length}` : `${saved.length} CFOP${saved.length > 1 ? 's' : ''}`);
+  $('#sBody').innerHTML = list.length ? list.map(x => {
+    const it = MAP.get(x.cfop);
+    return `<tr><td class="code">${x.cfop}</td>
+      <td>${esc(it.desc)}<div class="grp">${esc(it.grupo.split(' - ')[0])} · ${esc(it.grupo.split(' - ').slice(1).join(' - ').toLowerCase())}</div></td>
+      <td class="note-cell"><input class="note-in" id="nt-${x.cfop}" data-note="${x.cfop}" value="${esc(x.nota)}" placeholder="Ex.: venda de soja para outro estado" aria-label="Anotação do CFOP ${x.cfop}" autocomplete="off"></td>
+      <td class="c-act2">${copyBtn(x.cfop)}<button type="button" class="icon-btn" data-unsave="${x.cfop}" aria-label="Remover ${x.cfop} dos salvos" title="Remover dos salvos"><svg viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round"><path d="M64 64l128 128M192 64L64 192"/></svg></button></td></tr>`;
+  }).join('') : (empty ? '' : `<tr><td colspan="4" class="empty">Nenhum salvo corresponde a “${esc($('#sq').value)}”.</td></tr>`);
+}
+$('#sq').addEventListener('input', renderSaved);
+$('#sBody').addEventListener('input', e => {
+  const c = e.target.dataset.note; if (!c) return;
+  const x = saved.find(s => s.cfop === c); if (!x) return;
+  x.nota = e.target.value; persistSaved();
+});
+$('#sBody').addEventListener('click', e => {
+  const u = e.target.closest('[data-unsave]'); if (u) { toggleSaved(u.dataset.unsave); return; }
+  const b = e.target.closest('[data-copy]'); if (b) copyCode(b.dataset.copy);
 });
 
 /* ---------- Navegação ---------- */
+const VIEWS = { operacoes: 'Operações', consulta: 'Consulta CFOP', salvos: 'Salvos' };
 function route() {
-  const v = location.hash === '#consulta' ? 'consulta' : 'operacoes';
-  $('#view-operacoes').hidden = v !== 'operacoes';
-  $('#view-consulta').hidden = v !== 'consulta';
+  const h = location.hash.slice(1);
+  const v = VIEWS[h] ? h : 'operacoes';
+  Object.keys(VIEWS).forEach(k => { $('#view-' + k).hidden = k !== v; });
   document.querySelectorAll('.nav a').forEach(a => { if (a.dataset.view === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-  $('#crumbView').textContent = v === 'consulta' ? 'Consulta CFOP' : 'Operações';
+  $('#crumbView').textContent = VIEWS[v];
   if (v === 'consulta') renderLookup();
+  if (v === 'salvos') renderSaved();
 }
 window.addEventListener('hashchange', route);
 
@@ -798,7 +911,7 @@ window.addEventListener('hashchange', route);
 $('#btnExport').addEventListener('click', () => {
   if (!window.XLSX) { toast('Não foi possível carregar o gerador de Excel. Verifique a conexão com a internet e recarregue a página.'); return; }
   const filled = rows.filter(r => r.cfop);
-  if (!filled.length) { toast('Cadastre ao menos um CFOP antes de exportar.'); return; }
+  if (!filled.length && !saved.length) { toast('Cadastre ou salve ao menos um CFOP antes de exportar.'); return; }
   const d = c => (MAP.get(c) || {}).desc || 'CFOP não encontrado';
   const num = c => /^\d{4}$/.test(c) ? Number(c) : c;
   const ops = [['CFOP', 'DESCRIÇÃO', 'CFOP RELACIONADO']]
@@ -812,6 +925,11 @@ $('#btnExport').addEventListener('click', () => {
   ws2['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: vinc.length - 1, c: 3 } }) };
   XLSX.utils.book_append_sheet(wb, ws1, 'Operações');
   XLSX.utils.book_append_sheet(wb, ws2, 'Vínculos');
+  if (saved.length) {
+    const sv = [['CFOP', 'DESCRIÇÃO', 'ANOTAÇÃO']].concat(saved.slice().sort((a, b) => a.cfop.localeCompare(b.cfop)).map(x => [num(x.cfop), d(x.cfop), x.nota]));
+    const ws3 = XLSX.utils.aoa_to_sheet(sv); ws3['!cols'] = [{ wch: 8 }, { wch: 70 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, ws3, 'Salvos');
+  }
   const stamp = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `operacoes-rurais-cfop-${stamp}.xlsx`);
   toast('Planilha exportada');
@@ -1008,6 +1126,7 @@ $('#cDisconnect').addEventListener('click', () => {
 $('#baseCount').textContent = BASE.length;
 $('#cfopList').innerHTML = BASE.map(r => `<option value="${r[0]}">${esc(r[1])}</option>`).join('');
 renderOps();
+persistSaved();
 route();
 setStatus();
 if (conn) sync();
